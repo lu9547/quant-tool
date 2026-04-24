@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="量拓Quant">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#0d1117">
+    <title>量拓Quant - 移动量化工具</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js">
+    </script>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --surface: #161b22;
+            --surface2: #1c2333;
+            --border: #30363d;
+            --text: #e6edf3;
+            --text2: #8b949e;
+            --red: #f85149;
+            --green: #3fb950;
+            --blue: #58a6ff;
+            --gold: #d2991d;
+            --accent: #f0883e;
+            --radius: 12px;
+            --radius-sm: 8px;
+            --safe-bottom: env(safe-area-inset-bottom, 16px);
+            --nav-height: 64px;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            height: 100dvh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            -webkit-font-smoothing: antialiased;
+        }
+        /* 顶部栏 */
+        .header {
+            background: var(--surface);
+            padding: 8px 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-bottom: 1px solid var(--border);
+            z-index: 100;
+            flex-shrink: 0;
+            min-height: 50px;
+        }
+        .header .logo {
+            font-weight: 700;
+            font-size: 18px;
+            letter-spacing: -0.5px;
+            color: var(--accent);
+            white-space: nowrap;
+        }
+        .header .logo span {
+            color: var(--text);
+            font-weight: 400;
+            font-size: 13px;
+            margin-left: 4px;
+        }
+        .search-bar {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            background: var(--surface2);
+            border-radius: 20px;
+            padding: 6px 14px;
+            gap: 6px;
+            border: 1px solid var(--border);
+            cursor: pointer;
+            min-width: 0;
+        }
+        .search-bar .icon {
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+        .search-bar input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text);
+            font-size: 14px;
+            outline: none;
+            min-width: 0;
+            -webkit-user-select: text;
+            user-select: text;
+        }
+        .search-bar input::placeholder {
+            color: var(--text2);
+        }
+        .stock-info-mini {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+            font-size: 13px;
+            color: var(--text2);
+        }
+        .stock-info-mini .price {
+            font-weight: 600;
+            font-size: 15px;
+            color: var(--text);
+        }
+        .stock-info-mini .change {
+            font-weight: 500;
+            font-size: 12px;
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+        .change.up {
+            background: rgba(63, 185, 80, 0.15);
+            color: var(--green);
+        }
+        .change.down {
+            background: rgba(248, 81, 73, 0.15);
+            color: var(--red);
+        }
+
+        /* 主内容区 */
+        .main-content {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+            position: relative;
+        }
+        .page {
+            display: none;
+            padding: 8px 10px;
+            animation: fadeIn 0.2s ease;
+        }
+        .page.active {
+            display: block;
+        }
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(6px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* 图表容器 */
+        .chart-container {
+            background: var(--surface);
+            border-radius: var(--radius);
+            padding: 4px;
+            margin-bottom: 8px;
+            border: 1px solid var(--border);
+            position: relative;
+        }
+        .chart-box {
+            width: 100%;
+            height: 340px;
+            cursor: crosshair;
+        }
+        .chart-box-sub {
+            width: 100%;
+            height: 140px;
+        }
+        .indicator-tabs {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            padding: 6px 2px;
+        }
+        .indicator-tab {
+            padding: 5px 12px;
+            border-radius: 14px;
+            font-size: 12px;
+            font-weight: 500;
+            background: var(--surface2);
+            color: var(--text2);
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: all 0.15s;
+            white-space: nowrap;
+            touch-action: manipulation;
+        }
+        .indicator-tab.active {
+            background: rgba(240, 136, 62, 0.15);
+            color: var(--accent);
+            border-color: var(--accent);
+        }
+        .period-tabs {
+            display: flex;
+            gap: 4px;
+            padding: 6px 2px;
+            flex-wrap: wrap;
+        }
+        .period-tab {
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            background: var(--surface2);
+            color: var(--text2);
+            cursor: pointer;
+            transition: all 0.15s;
+            touch-action: manipulation;
+        }
+        .period-tab.active {
+            background: var(--blue);
+            color: #fff;
+        }
+
+        /* 回测卡片 */
+        .backtest-card {
+            background: var(--surface);
+            border-radius: var(--radius);
+            padding: 14px;
+            margin-bottom: 8px;
+            border: 1px solid var(--border);
+        }
+        .backtest-card h3 {
+            font-size: 15px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .param-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 8px;
+        }
+        .param-row label {
+            font-size: 12px;
+            color: var(--text2);
+            white-space: nowrap;
+            min-width: 44px;
+        }
+        .param-row input {
+            width: 64px;
+            padding: 6px 8px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: var(--surface2);
+            color: var(--text);
+            font-size: 14px;
+            text-align: center;
+            -webkit-user-select: text;
+            user-select: text;
+        }
+        .btn {
+            padding: 8px 18px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: all 0.15s;
+            touch-action: manipulation;
+            white-space: nowrap;
+        }
+        .btn-primary {
+            background: var(--accent);
+            color: #fff;
+        }
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text);
+        }
+        .btn-sm {
+            padding: 5px 12px;
+            font-size: 11px;
+            border-radius: 14px;
+        }
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .metric-item {
+            background: var(--surface2);
+            border-radius: var(--radius-sm);
+            padding: 10px;
+            text-align: center;
+        }
+        .metric-item .val {
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+        .metric-item .lbl {
+            font-size: 11px;
+            color: var(--text2);
+            margin-top: 2px;
+        }
+        .val.positive {
+            color: var(--green);
+        }
+        .val.negative {
+            color: var(--red);
+        }
+
+        /* 自选股列表 */
+        .watchlist-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 14px;
+            background: var(--surface);
+            border-radius: var(--radius-sm);
+            margin-bottom: 6px;
+            border: 1px solid var(--border);
+            cursor: pointer;
+            transition: all 0.15s;
+            touch-action: manipulation;
+        }
+        .watchlist-item:active {
+            background: var(--surface2);
+            transform: scale(0.98);
+        }
+        .watchlist-item .name {
+            font-weight: 600;
+            font-size: 14px;
+        }
+        .watchlist-item .code {
+            font-size: 11px;
+            color: var(--text2);
+        }
+        .watchlist-item .w-price {
+            font-weight: 600;
+            font-size: 14px;
+            text-align: right;
+        }
+        .watchlist-item .w-change {
+            font-size: 11px;
+            text-align: right;
+        }
+        .watchlist-item .remove-btn {
+            padding: 4px 10px;
+            font-size: 11px;
+            border-radius: 12px;
+            background: rgba(248, 81, 73, 0.15);
+            color: var(--red);
+            border: none;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text2);
+        }
+        .empty-state .icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+
+        /* 交易记录 */
+        .trade-record {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 10px;
+            border-radius: 6px;
+            margin-bottom: 4px;
+            font-size: 12px;
+            background: var(--surface2);
+        }
+        .trade-record.buy {
+            border-left: 3px solid var(--green);
+        }
+        .trade-record.sell {
+            border-left: 3px solid var(--red);
+        }
+
+        /* 底部导航 */
+        .bottom-nav {
+            display: flex;
+            background: var(--surface);
+            border-top: 1px solid var(--border);
+            flex-shrink: 0;
+            padding-bottom: var(--safe-bottom);
+            z-index: 100;
+        }
+        .nav-item {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 8px 4px;
+            cursor: pointer;
+            transition: all 0.15s;
+            color: var(--text2);
+            gap: 2px;
+            touch-action: manipulation;
+            min-height: var(--nav-height);
+        }
+        .nav-item.active {
+            color: var(--accent);
+        }
+        .nav-item .nav-icon {
+            font-size: 20px;
+            line-height: 1;
+        }
+        .nav-item .nav-label {
+            font-size: 10px;
+            font-weight: 500;
+        }
+
+        /* 搜索结果下拉 */
+        .search-results {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 0 0 var(--radius) var(--radius);
+            max-height: 240px;
+            overflow-y: auto;
+            z-index: 200;
+            display: none;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+        }
+        .search-results.show {
+            display: block;
+        }
+        .search-result-item {
+            padding: 10px 14px;
+            cursor: pointer;
+            font-size: 13px;
+            border-bottom: 1px solid var(--border);
+            touch-action: manipulation;
+        }
+        .search-result-item:active {
+            background: var(--surface2);
+        }
+        .search-result-item .s-name {
+            font-weight: 500;
+        }
+        .search-result-item .s-code {
+            font-size: 11px;
+            color: var(--text2);
+            margin-left: 6px;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--surface2);
+            color: var(--text);
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 13px;
+            z-index: 999;
+            border: 1px solid var(--border);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+        }
+        .toast.show {
+            opacity: 1;
+        }
+
+        /* 滚动条 */
+        ::-webkit-scrollbar {
+            width: 3px;
+            height: 3px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 3px;
+        }
+
+        @media (min-width: 500px) {
+            .chart-box {
+                height: 400px;
+            }
+            .chart-box-sub {
+                height: 160px;
+            }
+            .metrics-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 顶部栏 -->
+    <div class="header">
+        <div class="logo">量拓<span>Quant</span></div>
+        <div class="search-bar" id="searchBar" onclick="document.getElementById('searchInput').focus()">
+            <span class="icon">🔍</span>
+            <input type="text" id="searchInput" placeholder="搜索股票代码或名称..." autocomplete="off">
+        </div>
+        <div class="stock-info-mini" id="stockInfoMini">
+            <span class="price" id="miniPrice">--</span>
+            <span class="change" id="miniChange">--</span>
+        </div>
+        <div class="search-results" id="searchResults"></div>
+    </div>
+
+    <!-- 主内容 -->
+    <div class="main-content" id="mainContent">
+        <!-- 行情页 -->
+        <div class="page active" id="page-market">
+            <div class="period-tabs" id="periodTabs">
+                <span class="period-tab" data-period="1">1分</span>
+                <span class="period-tab" data-period="5">5分</span>
+                <span class="period-tab" data-period="15">15分</span>
+                <span class="period-tab" data-period="30">30分</span>
+                <span class="period-tab" data-period="60">60分</span>
+                <span class="period-tab active" data-period="101">日线</span>
+                <span class="period-tab" data-period="102">周线</span>
+                <span class="period-tab" data-period="103">月线</span>
+            </div>
+            <div class="chart-container">
+                <div class="chart-box" id="chartMain"></div>
+                <div class="indicator-tabs" id="indicatorTabs">
+                    <span class="indicator-tab active" data-ind="ma">MA均线</span>
+                    <span class="indicator-tab" data-ind="boll">BOLL布林</span>
+                    <span class="indicator-tab" data-ind="macd">MACD</span>
+                    <span class="indicator-tab" data-ind="rsi">RSI</span>
+                    <span class="indicator-tab" data-ind="kdj">KDJ</span>
+                </div>
+            </div>
+            <div class="chart-container">
+                <div class="chart-box-sub" id="chartSub"></div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button class="btn btn-outline btn-sm" id="btnAddWatchlist">⭐ 加入自选</button>
+                <button class="btn btn-outline btn-sm" id="btnRunBacktest">📊 快速回测</button>
+            </div>
+        </div>
+
+        <!-- 自选页 -->
+        <div class="page" id="page-watchlist">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <h3 style="font-size:16px;">📌 我的自选股</h3>
+                <button class="btn btn-outline btn-sm" id="btnRefreshWatchlist">🔄 刷新</button>
+            </div>
+            <div id="watchlistContainer">
+                <div class="empty-state">
+                    <div class="icon">📭</div>
+                    <p>还没有自选股</p>
+                    <p style="font-size:12px;">在行情页搜索股票并点击"加入自选"</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 回测页 -->
+        <div class="page" id="page-backtest">
+            <div class="backtest-card">
+                <h3>🧪 均线交叉策略回测</h3>
+                <div class="param-row">
+                    <label>短周期</label>
+                    <input type="number" id="btShort" value="5" min="2" max="120">
+                    <label>长周期</label>
+                    <input type="number" id="btLong" value="20" min="5" max="250">
+                    <label>初始资金</label>
+                    <input type="number" id="btCapital" value="100000" min="1000" step="10000" style="width:80px;">
+                </div>
+                <button class="btn btn-primary" id="btnStartBacktest">🚀 开始回测</button>
+                <div class="metrics-grid" id="btMetrics" style="display:none;"></div>
+            </div>
+            <div class="chart-container" id="btChartContainer" style="display:none;">
+                <div class="chart-box" id="chartBacktest"></div>
+            </div>
+            <div id="btTrades" style="max-height:200px;overflow-y:auto;"></div>
+        </div>
+
+        <!-- 设置页 -->
+        <div class="page" id="page-settings">
+            <div class="backtest-card">
+                <h3>⚙️ 设置</h3>
+                <p style="font-size:13px;color:var(--text2);">数据源：东方财富API（优先）/ 模拟数据（备用）</p>
+                <p style="font-size:13px;color:var(--text2);">缓存策略：自选股本地存储</p>
+                <button class="btn btn-outline btn-sm" id="btnClearCache" style="margin-top:8px;">🗑️ 清除缓存数据</button>
+                <button class="btn btn-outline btn-sm" id="btnExportData" style="margin-top:8px;margin-left:6px;">📥 导出回测数据</button>
+                <p style="font-size:11px;color:var(--text2);margin-top:12px;">量拓Quant v1.0 | 参考点拓量化工具复刻</p>
+                <p style="font-size:11px;color:var(--text2);">部署到手机：使用HTTPS托管，浏览器打开后"添加到主屏幕"</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 底部导航 -->
+    <div class="bottom-nav" id="bottomNav">
+        <div class="nav-item active" data-page="market">
+            <span class="nav-icon">📈</span>
+            <span class="nav-label">行情</span>
+        </div>
+        <div class="nav-item" data-page="watchlist">
+            <span class="nav-icon">⭐</span>
+            <span class="nav-label">自选</span>
+        </div>
+        <div class="nav-item" data-page="backtest">
+            <span class="nav-icon">🧪</span>
+            <span class="nav-label">回测</span>
+        </div>
+        <div class="nav-item" data-page="settings">
+            <span class="nav-icon">⚙️</span>
+            <span class="nav-label">设置</span>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+        (function() {
+            // ==================== 全局状态 ====================
+            const STATE = {
+                currentStock: { code: '000001', name: '平安银行', market: 0, secid: '0.000001' },
+                currentPeriod: '101', // 日线
+                currentIndicator: 'ma',
+                klineData: [],
+                watchlist: [],
+                backtestResults: null,
+            };
+
+            // ==================== DOM缓存 ====================
+            const $ = (s) => document.querySelector(s);
+            const $$ = (s) => document.querySelectorAll(s);
+
+            const domMainContent = $('#mainContent');
+            const domSearchInput = $('#searchInput');
+            const domSearchResults = $('#searchResults');
+            const domMiniPrice = $('#miniPrice');
+            const domMiniChange = $('#miniChange');
+            const domChartMain = $('#chartMain');
+            const domChartSub = $('#chartSub');
+            const domWatchlistContainer = $('#watchlistContainer');
+            const domToast = $('#toast');
+            const domBtMetrics = $('#btMetrics');
+            const domBtChartContainer = $('#btChartContainer');
+            const domChartBacktest = $('#chartBacktest');
+            const domBtTrades = $('#btTrades');
+
+            let mainChart = null;
+            let subChart = null;
+            let btChart = null;
+
+            // ==================== Toast ====================
+            let toastTimer;
+
+            function showToast(msg) {
+                domToast.textContent = msg;
+                domToast.classList.add('show');
+                clearTimeout(toastTimer);
+                toastTimer = setTimeout(() => domToast.classList.remove('show'), 2000);
+            }
+
+            // ==================== 数据获取 ====================
+            async function fetchKlineData(secid, period) {
+                const kltMap = { '1': '1', '5': '5', '15': '15', '30': '30', '60': '60', '101': '101', '102': '102',
+                    '103': '103' };
+                const klt = kltMap[period] || '101';
+                const lmt = period === '1' ? 240 : period === '5' ? 240 : period === '15' ? 200 : period === '30' ? 200 :
+                    period === '60' ? 160 : 300;
+                const url =
+                    `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${secid}&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56,f57&klt=${klt}&fqt=0&end=20500101&lmt=${lmt}`;
+                try {
+                    const resp = await fetch(url, { signal: AbortSignal.timeout(8000) });
+                    const json = await resp.json();
+                    if (json && json.data && json.data.klines && json.data.klines.length > 0) {
+                        return parseKlines(json.data.klines);
+                    }
+                } catch (e) {
+                    console.warn('API获取失败，使用模拟数据:', e.message);
+                }
+                return generateMockData(period);
+            }
+
+            function parseKlines(klines) {
+                return klines.map(line => {
+                    const parts = line.split(',');
+                    return {
+                        date: parts[0],
+                        open: parseFloat(parts[1]),
+                        close: parseFloat(parts[2]),
+                        high: parseFloat(parts[3]),
+                        low: parseFloat(parts[4]),
+                        volume: parseFloat(parts[5]),
+                        amount: parseFloat(parts[6]) || 0,
+                    };
+                });
+            }
+
+            function generateMockData(period) {
+                const data = [];
+                const now = new Date();
+                let days = 300;
+                if (period === '1') days = 240;
+                if (period === '5') days = 240;
+                if (period === '15') days = 200;
+                if (period === '30') days = 200;
+                if (period === '60') days = 160;
+                if (period === '102') days = 150;
+                if (period === '103') days = 60;
+
+                let price = 15 + Math.random() * 30;
+                const baseVol = 500000 + Math.random() * 2000000;
+                for (let i = days; i >= 0; i--) {
+                    const d = new Date(now);
+                    d.setDate(d.getDate() - i);
+                    if (d.getDay() === 0 || d.getDay() === 6) {
+                        if (period === '101' || period === '102' || period === '103') continue;
+                    }
+                    const volatility = 0.02 + Math.random() * 0.03;
+                    const change = (Math.random() - 0.48) * volatility * price;
+                    const open = price;
+                    const close = price + change;
+                    const high = Math.max(open, close) + Math.random() * Math.abs(change) * 0.8;
+                    const low = Math.min(open, close) - Math.random() * Math.abs(change) * 0.8;
+                    const volume = baseVol * (0.5 + Math.random());
+                    data.push({
+                        date: d.toISOString().split('T')[0],
+                        open: +open.toFixed(2),
+                        close: +close.toFixed(2),
+                        high: +high.toFixed(2),
+                        low: +low.toFixed(2),
+                        volume: Math.round(volume),
+                        amount: Math.round(volume * ((open + close) / 2)),
+                    });
+                    price = close;
+                }
+                return data;
+            }
+
+            // ==================== 技术指标计算 ====================
+            function calcMA(data, period) {
+                const result = [];
+                for (let i = 0; i < data.length; i++) {
+                    if (i < period - 1) { result.push(null); continue; }
+                    let sum = 0;
+                    for (let j = i - period + 1; j <= i; j++) sum += data[j].close;
+                    result.push(+(sum / period).toFixed(3));
+                }
+                return result;
+            }
+
+            function calcEMA(data, period) {
+                const result = [];
+                const k = 2 / (period + 1);
+                let ema = data[0].close;
+                result.push(ema);
+                for (let i = 1; i < data.length; i++) {
+                    ema = data[i].close * k + ema * (1 - k);
+                    result.push(+ema.toFixed(3));
+                }
+                return result;
+            }
+
+            function calcMACD(data) {
+                const ema12 = calcEMA(data, 12);
+                const ema26 = calcEMA(data, 26);
+                const dif = ema12.map((v, i) => v !== null && ema26[i] !== null ? +(v - ema26[i]).toFixed(4) : null);
+                const deaArr = [];
+                let dea = dif.find(v => v !== null) || 0;
+                const k = 2 / (9 + 1);
+                for (let i = 0; i < dif.length; i++) {
+                    if (dif[i] === null) { deaArr.push(null); continue; }
+                    dea = dif[i] * k + dea * (1 - k);
+                    deaArr.push(+dea.toFixed(4));
+                }
+                const macd = dif.map((v, i) => v !== null && deaArr[i] !== null ? +((v - deaArr[i]) * 2).toFixed(4) : null);
+                return { dif, dea: deaArr, macd };
+            }
+
+            function calcRSI(data, period = 14) {
+                const result = [];
+                let gains = 0,
+                    losses = 0;
+                for (let i = 0; i < data.length; i++) {
+                    if (i < period) { result.push(null); continue; }
+                    if (i === period) {
+                        for (let j = 1; j <= period; j++) {
+                            const diff = data[j].close - data[j - 1].close;
+                            if (diff > 0) gains += diff;
+                            else losses -= diff;
+                        }
+                        gains /= period;
+                        losses /= period;
+                    } else {
+                        const diff = data[i].close - data[i - 1].close;
+                        gains = (gains * (period - 1) + (diff > 0 ? diff : 0)) / period;
+                        losses = (losses * (period - 1) + (diff < 0 ? -diff : 0)) / period;
+                    }
+                    const rs = losses === 0 ? 100 : gains / losses;
+                    result.push(+(100 - 100 / (1 + rs)).toFixed(2));
+                }
+                return result;
+            }
+
+            function calcKDJ(data, period = 9) {
+                const kArr = [],
+                    dArr = [],
+                    jArr = [];
+                let k = 50,
+                    d = 50;
+                for (let i = 0; i < data.length; i++) {
+                    if (i < period - 1) { kArr.push(null);
+                        dArr.push(null);
+                        jArr.push(null); continue; }
+                    const slice = data.slice(i - period + 1, i + 1);
+                    const low = Math.min(...slice.map(s => s.low));
+                    const high = Math.max(...slice.map(s => s.high));
+                    const rsv = high === low ? 50 : ((data[i].close - low) / (high - low)) * 100;
+                    k = (2 / 3) * k + (1 / 3) * rsv;
+                    d = (2 / 3) * d + (1 / 3) * k;
+                    const j = 3 * k - 2 * d;
+                    kArr.push(+k.toFixed(2));
+                    dArr.push(+d.toFixed(2));
+                    jArr.push(+j.toFixed(2));
+                }
+                return { k: kArr, d: dArr, j: jArr };
+            }
+
+            function calcBOLL(data, period = 20, multiplier = 2) {
+                const mid = calcMA(data, period);
+                const upper = [],
+                    lower = [];
+                for (let i = 0; i < data.length; i++) {
+                    if (mid[i] === null) { upper.push(null);
+                        lower.push(null); continue; }
+                    const slice = data.slice(i - period + 1, i + 1)
